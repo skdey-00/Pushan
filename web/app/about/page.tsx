@@ -1,4 +1,4 @@
-import { TrafficSignal, Cpu, Camera, Database, Zap, Users } from 'lucide-react';
+import { Signal, Cpu, Camera, Database, Zap, Users } from 'lucide-react';
 
 export default function AboutPage() {
   const techStack = [
@@ -37,7 +37,7 @@ export default function AboutPage() {
       description: 'Camera, sensors, and LEDs work in perfect harmony over WiFi',
     },
     {
-      icon: TrafficSignal,
+      icon: Signal,
       title: 'Adaptive Control',
       description: 'AI adjusts signals based on queue depth and vehicle count',
     },
@@ -57,7 +57,7 @@ export default function AboutPage() {
         <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl border border-slate-700 p-8 text-center">
           <div className="flex justify-center mb-6">
             <div className="bg-gradient-to-br from-blue-500 to-purple-600 p-4 rounded-2xl">
-              <TrafficSignal className="w-16 h-16 text-white" />
+              <Signal className="w-16 h-16 text-white" />
             </div>
           </div>
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">

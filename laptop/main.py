@@ -89,7 +89,7 @@ def check_device_status():
         system_state["devices_online"]["camera"] = False
 
 
-def process_traffic():
+def process_traffic(log_traffic_event=None):
     """
     Main processing loop:
     1. Fetch sensor data
@@ -97,7 +97,7 @@ def process_traffic():
     3. Compute traffic score
     4. Make decision
     5. Send command to dev board
-    6. Log to Supabase
+    6. Log to Supabase and in-memory store
     """
     global system_state, last_heartbeat_time
 
@@ -134,7 +134,7 @@ def process_traffic():
         decision["speed_limit"]
     )
 
-    # 6. Log to Supabase
+    # 6. Log to Supabase and in-memory store
     log_event(
         car_count=car_count,
         queue_level=queue_level,
@@ -143,6 +143,17 @@ def process_traffic():
         speed_limit=decision["speed_limit"],
         is_override=decision["is_override"]
     )
+
+    # Log to API server's in-memory store
+    if log_traffic_event:
+        log_traffic_event(
+            car_count=car_count,
+            queue_level=queue_level,
+            traffic_score=traffic_score,
+            signal=decision["signal"],
+            speed_limit=decision["speed_limit"],
+            is_override=decision["is_override"]
+        )
 
     # Update system state
     system_state["car_count"] = car_count
@@ -157,10 +168,11 @@ def process_traffic():
 
 def run_flask_in_thread():
     """Run Flask API in separate thread"""
-    from api_server import run_api_server
+    from api_server import run_api_server, log_traffic_event
     thread = threading.Thread(target=run_api_server, daemon=True)
     thread.start()
     print("Flask API server started in background thread")
+    return log_traffic_event
 
 
 def main():
@@ -169,8 +181,8 @@ def main():
     print("ADAPTIVE TRAFFIC SIGNAL SYSTEM - MAIN LOOP")
     print("=" * 60)
 
-    # Start Flask API in background
-    run_flask_in_thread()
+    # Start Flask API in background and get logger function
+    log_traffic_event = run_flask_in_thread()
 
     # Wait a moment for API to start
     time.sleep(2)
@@ -178,7 +190,7 @@ def main():
     # Main processing loop
     try:
         while True:
-            process_traffic()
+            process_traffic(log_traffic_event)
             time.sleep(MAIN_LOOP_INTERVAL)
     except KeyboardInterrupt:
         print("\nShutting down...")

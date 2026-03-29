@@ -1,13 +1,9 @@
 /**
  * API client for Flask backend
- * This replaces Supabase for deployments that don't want to use it
  */
 
 const getApiUrl = () => {
-  const apiUrl = process.env.NEXT_PUBLIC_FLASK_API_URL;
-  if (!apiUrl) {
-    throw new Error('NEXT_PUBLIC_FLASK_API_URL environment variable is not set');
-  }
+  const apiUrl = process.env.NEXT_PUBLIC_FLASK_API_URL || 'http://localhost:5000';
   return apiUrl;
 };
 
@@ -42,6 +38,38 @@ export async function fetchRecentEvents(limit: number = 50): Promise<any[]> {
   } catch (error) {
     console.error('Error fetching events:', error);
     return [];
+  }
+}
+
+/**
+ * Fetch analytics from Flask API
+ */
+export async function fetchAnalytics(hours: number = 24): Promise<Record<string, any>> {
+  try {
+    const response = await fetch(`${getApiUrl()}/analytics?hours=${hours}`);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch analytics: ${response.statusText}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching analytics:', error);
+    return {};
+  }
+}
+
+/**
+ * Fetch combined metrics from Flask API
+ */
+export async function fetchMetrics(): Promise<Record<string, any>> {
+  try {
+    const response = await fetch(`${getApiUrl()}/metrics`);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch metrics: ${response.statusText}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching metrics:', error);
+    return {};
   }
 }
 
@@ -93,4 +121,17 @@ export async function clearLogs(): Promise<any> {
   }
 
   return response.json();
+}
+
+/**
+ * Check API health
+ */
+export async function checkHealth(): Promise<{ status: string; timestamp?: string; events_stored?: number } | null> {
+  try {
+    const response = await fetch(`${getApiUrl()}/health`);
+    if (!response.ok) return null;
+    return await response.json();
+  } catch {
+    return null;
+  }
 }

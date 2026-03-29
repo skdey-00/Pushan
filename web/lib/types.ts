@@ -30,14 +30,16 @@ export interface SystemState {
 }
 
 export interface TrafficEvent {
-  id: string;
-  created_at: string;
-  car_count: number;
-  queue_level: number;
-  traffic_score: number;
-  signal: string;
-  speed_limit: number;
-  is_override: boolean;
+  id?: string;
+  created_at?: string;
+  timestamp?: string;
+  car_count?: number;
+  queue_level?: number;
+  traffic_score?: number;
+  signal?: string;
+  speed_limit?: number;
+  is_override?: boolean;
+  type?: string;
 }
 
 export interface OverrideRequest {

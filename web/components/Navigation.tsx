@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { TrafficSignal, LayoutDashboard, TrendingUp, Settings, Info } from 'lucide-react';
+import { Signal, LayoutDashboard, TrendingUp, Settings, Info } from 'lucide-react';
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -35,7 +35,7 @@ export default function Navigation() {
           {/* Logo */}
           <Link href="/" className="flex items-center gap-3">
             <div className="bg-gradient-to-br from-blue-500 to-purple-600 p-2 rounded-lg">
-              <TrafficSignal className="w-6 h-6 text-white" />
+              <Signal className="w-6 h-6 text-white" />
             </div>
             <div className="hidden sm:block">
               <h1 className="text-white font-bold text-lg">Adaptive Traffic</h1>

@@ -47,9 +47,11 @@ export default function AnalyticsPage() {
     }));
 
     events.forEach((event) => {
-      const hour = new Date(event.created_at).getHours();
-      hours[hour].score += event.traffic_score;
-      hours[hour].vehicles += event.car_count;
+      const dateStr = event.timestamp || event.created_at;
+      if (!dateStr) return;
+      const hour = new Date(dateStr).getHours();
+      hours[hour].score += event.traffic_score || 0;
+      hours[hour].vehicles += event.car_count || 0;
       hours[hour].count += 1;
     });
 
@@ -63,7 +65,8 @@ export default function AnalyticsPage() {
   const signalDistribution = (() => {
     const dist = { RED: 0, YELLOW: 0, GREEN: 0 };
     events.forEach((e) => {
-      if (e.signal in dist) dist[e.signal as keyof typeof dist]++;
+      const sig = e.signal;
+      if (sig && sig in dist) dist[sig as keyof typeof dist]++;
     });
     return Object.entries(dist).map(([name, value]) => ({ name, value }));
   })();
@@ -75,7 +78,8 @@ export default function AnalyticsPage() {
       { name: '5-6 (Heavy)', min: 5, max: 6, count: 0 },
     ];
     events.forEach((e) => {
-      const range = ranges.find((r) => e.queue_level >= r.min && e.queue_level <= r.max);
+      const ql = e.queue_level ?? 0;
+      const range = ranges.find((r) => ql >= r.min && ql <= r.max);
       if (range) range.count++;
     });
     return ranges;
@@ -84,7 +88,7 @@ export default function AnalyticsPage() {
   const stats = {
     totalEvents: events.length,
     avgScore: events.length
-      ? Number((events.reduce((sum, e) => sum + e.traffic_score, 0) / events.length).toFixed(1))
+      ? Number((events.reduce((sum, e) => sum + (e.traffic_score || 0), 0) / events.length).toFixed(1))
       : 0,
     overrideCount: events.filter((e) => e.is_override).length,
     peakHour: hourlyData.reduce((max, h) =>

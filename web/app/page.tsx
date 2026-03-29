@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import LiveFeed from '@/components/LiveFeed';
 import TrafficState from '@/components/TrafficState';
@@ -12,61 +12,46 @@ import AlertBanner from '@/components/AlertBanner';
 import SystemHealth from '@/components/SystemHealth';
 import MetricsCard from '@/components/MetricsCard';
 import { SystemState, TrafficEvent } from '@/lib/types';
-import { fetchRecentEvents, fetchSystemState } from '@/lib/api';
-import { Activity, Users, Gauge, TrendingUp, Clock } from 'lucide-react';
+import { fetchRecentEvents, fetchSystemState, checkHealth, setOverride, clearOverride } from '@/lib/api';
+import { Activity, Users, Gauge, TrendingUp, Clock, Wifi, WifiOff, AlertCircle } from 'lucide-react';
 
 export default function Home() {
   const [systemState, setSystemState] = useState<SystemState | null>(null);
   const [events, setEvents] = useState<TrafficEvent[]>([]);
   const [tunnelUrl, setTunnelUrl] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  const [apiConnected, setApiConnected] = useState(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
 
-  // Fetch initial system state
-  useEffect(() => {
-    const fetchState = async () => {
-      try {
-        const apiUrl = process.env.NEXT_PUBLIC_FLASK_API_URL;
-        if (!apiUrl) {
-          console.warn('Flask API URL not configured');
-          setLoading(false);
-          return;
-        }
-        const response = await fetch(`${apiUrl}/status`);
-        if (response.ok) {
-          const state = await response.json();
-          setSystemState(state);
-          setLoading(false);
-        }
-      } catch (error) {
-        console.error('Error fetching state:', error);
-        setLoading(false);
+  // Fetch system state with connection tracking
+  const fetchState = useCallback(async () => {
+    try {
+      const state = await fetchSystemState();
+      if (state && Object.keys(state).length > 0) {
+        setSystemState(state as SystemState);
+        setApiConnected(true);
+        setConnectionError(null);
+      } else {
+        setApiConnected(false);
+        setConnectionError('API returned empty response');
       }
-    };
+    } catch (error) {
+      console.error('Error fetching state:', error);
+      setApiConnected(false);
+      setConnectionError('Cannot connect to API');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
+  // Fetch initial system state and poll
+  useEffect(() => {
     fetchState();
     const interval = setInterval(fetchState, 2000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchState]);
 
-  // Fetch tunnel URL from system state (via Flask API)
-  useEffect(() => {
-    const fetchTunnelUrl = async () => {
-      try {
-        const state = await fetchSystemState();
-        if (state.tunnel_url) {
-          setTunnelUrl(state.tunnel_url);
-        }
-      } catch (error) {
-        console.error('Error fetching tunnel URL:', error);
-      }
-    };
-
-    fetchTunnelUrl();
-    const interval = setInterval(fetchTunnelUrl, 30000); // Check every 30s
-    return () => clearInterval(interval);
-  }, []);
-
-  // Fetch initial events
+  // Fetch events periodically
   useEffect(() => {
     const fetchEvents = async () => {
       const data = await fetchRecentEvents(50);
@@ -74,65 +59,50 @@ export default function Home() {
     };
 
     fetchEvents();
-
-    // Subscribe to new events via WebSocket (optional, falls back gracefully)
-    let ws: WebSocket | null = null;
-    try {
-      const wsUrl = process.env.NEXT_PUBLIC_FLASK_API_URL?.replace('http://', 'ws://').replace('https://', 'wss://');
-      if (wsUrl) {
-        ws = new WebSocket(`${wsUrl}/ws`);
-
-        ws.onopen = () => {
-          console.log('WebSocket connected');
-        };
-
-        ws.onmessage = (event) => {
-          try {
-            const newEvent = JSON.parse(event.data);
-            setEvents((prev) => [newEvent, ...prev].slice(0, 50));
-          } catch (err) {
-            console.error('Error parsing WebSocket message:', err);
-          }
-        };
-
-        ws.onerror = (error) => {
-          console.error('WebSocket error:', error);
-        };
-
-        ws.onclose = () => {
-          console.log('WebSocket disconnected');
-        };
-      }
-    } catch (error) {
-      console.error('WebSocket initialization failed:', error);
-    }
-
-    return () => {
-      if (ws) {
-        ws.close();
-      }
-    };
+    const interval = setInterval(fetchEvents, 5000); // Update every 5s
+    return () => clearInterval(interval);
   }, []);
 
   // Calculate metrics from events
   const todayEvents = events.filter((e) => {
-    const eventDate = new Date(e.created_at).toDateString();
+    const eventDate = new Date(e.timestamp || e.created_at || '').toDateString();
     const today = new Date().toDateString();
     return eventDate === today;
   });
 
   const avgQueueLevel =
     todayEvents.length > 0
-      ? (todayEvents.reduce((sum, e) => sum + e.queue_level, 0) / todayEvents.length).toFixed(1)
+      ? (todayEvents.reduce((sum, e) => sum + (e.queue_level || 0), 0) / todayEvents.length).toFixed(1)
       : '0.0';
 
   const peakScore = todayEvents.length > 0
-    ? Math.max(...todayEvents.map((e) => e.traffic_score))
+    ? Math.max(...todayEvents.map((e) => e.traffic_score || 0))
     : 0;
 
   const lastUpdate = systemState?.last_update
     ? `${Math.floor((Date.now() - new Date(systemState.last_update).getTime()) / 1000 / 60)}m ago`
-    : 'Never';
+    : systemState ? 'Just now' : 'Never';
+
+  // Handle override
+  const handleOverride = async (signal: string, speedLimit: number) => {
+    try {
+      await setOverride(signal, speedLimit);
+      await fetchState(); // Refresh state
+    } catch (error) {
+      console.error('Override failed:', error);
+      throw error;
+    }
+  };
+
+  const handleClearOverride = async () => {
+    try {
+      await clearOverride();
+      await fetchState(); // Refresh state
+    } catch (error) {
+      console.error('Clear override failed:', error);
+      throw error;
+    }
+  };
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
@@ -141,7 +111,20 @@ export default function Home() {
         <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl border border-slate-700 p-6">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-white">🚦 Traffic Command Center</h1>
+              <div className="flex items-center gap-3">
+                <h1 className="text-3xl font-bold text-white">🚦 Traffic Command Center</h1>
+                {apiConnected ? (
+                  <span className="flex items-center gap-1 px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-sm">
+                    <Wifi className="w-3 h-3" />
+                    Connected
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 px-3 py-1 bg-red-500/20 text-red-400 rounded-full text-sm">
+                    <WifiOff className="w-3 h-3" />
+                    Disconnected
+                  </span>
+                )}
+              </div>
               <p className="text-slate-400 mt-1">Real-time adaptive traffic signal management</p>
             </div>
             <div className="flex items-center gap-3">
@@ -156,6 +139,19 @@ export default function Home() {
           </div>
         </div>
 
+        {/* Connection Error Banner */}
+        {!loading && !apiConnected && (
+          <div className="bg-yellow-500/20 border border-yellow-500/50 rounded-xl p-4 flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-yellow-400" />
+            <div>
+              <p className="text-yellow-200 font-medium">API Not Connected</p>
+              <p className="text-yellow-300/70 text-sm">
+                Make sure the traffic controller is running. Check your local setup or tunnel URL.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Alert Banner */}
         {systemState && systemState.traffic_score >= 12 && (
           <AlertBanner score={systemState.traffic_score} />
@@ -166,7 +162,7 @@ export default function Home() {
           <MetricsCard
             icon={Users}
             title="Vehicles Today"
-            value={todayEvents.reduce((sum, e) => sum + e.car_count, 0)}
+            value={todayEvents.reduce((sum, e) => sum + (e.car_count || 0), 0)}
             color="blue"
           />
           <MetricsCard
@@ -184,7 +180,7 @@ export default function Home() {
           />
           <MetricsCard
             icon={TrendingUp}
-            title="Signals Changed"
+            title="Events Logged"
             value={todayEvents.length}
             color="green"
           />
@@ -227,19 +223,8 @@ export default function Home() {
 
         {/* Override Panel */}
         <OverridePanel
-          onOverrideSet={(data) => {
-            console.log('Override set:', data);
-            // Refresh system state after override
-            setTimeout(() => {
-              const apiUrl = process.env.NEXT_PUBLIC_FLASK_API_URL;
-              if (apiUrl) {
-                fetch(`${apiUrl}/status`)
-                  .then((res) => res.json())
-                  .then((data) => setSystemState(data))
-                  .catch((err) => console.error('Error refreshing state:', err));
-              }
-            }, 500);
-          }}
+          onOverrideSet={handleOverride}
+          onOverrideClear={handleClearOverride}
         />
 
         {/* History Chart */}
@@ -251,7 +236,7 @@ export default function Home() {
         {/* Footer */}
         <div className="text-center text-slate-500 py-6">
           <p className="text-sm">
-            Adaptive Traffic Signal System • Built with ESP32, YOLOv8, Next.js, and Supabase
+            Adaptive Traffic Signal System • Built with ESP32, YOLOv8, Next.js
           </p>
         </div>
       </div>

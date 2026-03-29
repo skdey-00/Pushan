@@ -7,13 +7,9 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error(
-    'Missing Supabase environment variables. Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.'
-  );
-}
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = supabaseUrl && supabaseAnonKey
+  ? createClient(supabaseUrl, supabaseAnonKey)
+  : null;
 
 /**
  * Subscribe to traffic events in real-time
@@ -21,6 +17,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 export function subscribeToTrafficEvents(
   callback: (payload: { new: any }) => void
 ) {
+  if (!supabase) return { unsubscribe: () => {} };
   return supabase
     .channel('traffic_events')
     .on(
@@ -39,6 +36,7 @@ export function subscribeToTrafficEvents(
  * Fetch recent traffic events
  */
 export async function fetchRecentEvents(limit = 50) {
+  if (!supabase) return [];
   const { data, error } = await supabase
     .from('traffic_events')
     .select('*')
@@ -57,6 +55,7 @@ export async function fetchRecentEvents(limit = 50) {
  * Fetch system state from database
  */
 export async function fetchSystemState() {
+  if (!supabase) return {};
   const { data, error } = await supabase
     .from('system_state')
     .select('*');
@@ -80,6 +79,7 @@ export async function fetchSystemState() {
 export function subscribeToSystemState(
   callback: (payload: { new: any }) => void
 ) {
+  if (!supabase) return { unsubscribe: () => {} };
   return supabase
     .channel('system_state')
     .on(

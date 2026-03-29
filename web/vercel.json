@@ -4,10 +4,5 @@
       "source": "/api/flask/:path*",
       "destination": "https://your-flask-api-url.com/api/:path*"
     }
-  ],
-  "env": {
-    "NEXT_PUBLIC_SUPABASE_URL": "@supabase-url",
-    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@supabase-anon-key",
-    "NEXT_PUBLIC_FLASK_API_URL": "@flask-api-url"
-  }
+  ]
 }
