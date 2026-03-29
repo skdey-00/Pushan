@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { TrafficSignal, LayoutDashboard, TrendingUp, Settings, Info } from 'lucide-react';
-import { useState, useEffect } from 'react';
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -14,9 +13,9 @@ const navItems = [
 
 export default function Navigation() {
   const pathname = usePathname();
-  const [isOnline, setIsOnline] = useState(true);
+  const [isOnline, setIsOnline] = React.useState(true);
 
-  useEffect(() => {
+  React.useEffect(() => {
     setIsOnline(navigator.onLine);
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);

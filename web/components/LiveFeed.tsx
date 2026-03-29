@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Camera, CameraOff } from 'lucide-react';
 
 interface LiveFeedProps {
@@ -13,16 +13,14 @@ export default function LiveFeed({ tunnelUrl }: LiveFeedProps) {
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    // Fetch camera URL from system state
+    // Fetch camera URL from Flask API
     const fetchTunnelUrl = async () => {
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_FLASK_API_URL || 'http://localhost:5000';
-        const response = await fetch(`${apiUrl}/status`);
-        if (response.ok) {
-          const state = await response.json();
-          if (state.tunnel_url) {
-            setImageUrl(`${state.tunnel_url}/stream`);
-          }
+        const { fetchSystemState } = await import('@/lib/api');
+        const state = await fetchSystemState();
+        if (state.tunnel_url) {
+          // Use the tunnel_url directly (should already be HTTPS from Cloudflare)
+          setImageUrl(`${state.tunnel_url}/stream`);
         }
       } catch (err) {
         console.error('Error fetching tunnel URL:', err);

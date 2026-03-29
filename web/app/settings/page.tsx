@@ -1,44 +1,91 @@
 'use client';
 
-import { useState } from 'react';
-import { Settings as SettingsIcon, Save, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Settings as SettingsIcon, Save, RefreshCw, AlertTriangle } from 'lucide-react';
+
+interface Settings {
+  junctionName: string;
+  flaskApiUrl: string;
+  alertThreshold: number;
+  dataRetentionDays: number;
+  overrideTimeout: number;
+  enableNotifications: boolean;
+}
+
+const DEFAULT_SETTINGS: Settings = {
+  junctionName: 'MG Road Junction',
+  flaskApiUrl: process.env.NEXT_PUBLIC_FLASK_API_URL || '',
+  alertThreshold: 12,
+  dataRetentionDays: 30,
+  overrideTimeout: 60,
+  enableNotifications: true,
+};
 
 export default function SettingsPage() {
-  const [settings, setSettings] = useState({
-    junctionName: 'MG Road Junction',
-    flaskApiUrl: 'http://localhost:5000',
-    alertThreshold: 12,
-    dataRetentionDays: 30,
-    overrideTimeout: 60,
-    enableNotifications: true,
-  });
-
+  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [saving, setSaving] = useState(false);
+  const [clearing, setClearing] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Load settings from localStorage on mount
+  useEffect(() => {
+    const savedSettings = localStorage.getItem('trafficSettings');
+    if (savedSettings) {
+      try {
+        setSettings(JSON.parse(savedSettings));
+      } catch (err) {
+        console.error('Error loading settings:', err);
+      }
+    }
+  }, []);
 
   const handleSave = async () => {
     setSaving(true);
     setMessage(null);
 
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      // Save to localStorage
+      localStorage.setItem('trafficSettings', JSON.stringify(settings));
+
+      // You could also save to Supabase here if you have a settings table
+      // For now, localStorage is sufficient for client-side settings
+
       setSaving(false);
       setMessage({ type: 'success', text: 'Settings saved successfully!' });
       setTimeout(() => setMessage(null), 3000);
-    }, 1000);
+    } catch (error) {
+      setSaving(false);
+      setMessage({ type: 'error', text: 'Failed to save settings' });
+      setTimeout(() => setMessage(null), 3000);
+    }
   };
 
   const handleReset = () => {
-    setSettings({
-      junctionName: 'MG Road Junction',
-      flaskApiUrl: 'http://localhost:5000',
-      alertThreshold: 12,
-      dataRetentionDays: 30,
-      overrideTimeout: 60,
-      enableNotifications: true,
-    });
+    setSettings(DEFAULT_SETTINGS);
+    localStorage.removeItem('trafficSettings');
     setMessage({ type: 'success', text: 'Settings reset to defaults' });
     setTimeout(() => setMessage(null), 3000);
+  };
+
+  const handleClearLogs = async () => {
+    if (!confirm('Are you sure you want to clear all traffic event logs? This action cannot be undone.')) {
+      return;
+    }
+
+    setClearing(true);
+    setMessage(null);
+
+    try {
+      const { clearLogs } = await import('@/lib/api');
+      await clearLogs();
+      setMessage({ type: 'success', text: 'All logs cleared successfully' });
+      setTimeout(() => setMessage(null), 3000);
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to clear logs. Check your connection.' });
+      setTimeout(() => setMessage(null), 3000);
+    } finally {
+      setClearing(false);
+    }
   };
 
   return (
@@ -78,17 +125,16 @@ export default function SettingsPage() {
 
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Flask API URL
+                  Flask API URL (Read-only)
                 </label>
                 <input
                   type="text"
-                  value={settings.flaskApiUrl}
-                  onChange={(e) => setSettings({ ...settings, flaskApiUrl: e.target.value })}
-                  className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="http://localhost:5000"
+                  value={settings.flaskApiUrl || 'Not configured'}
+                  disabled
+                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-400 cursor-not-allowed"
                 />
                 <p className="text-slate-400 text-sm mt-1">
-                  The URL of the Flask backend server
+                  Configure via NEXT_PUBLIC_FLASK_API_URL environment variable
                 </p>
               </div>
             </div>
@@ -222,12 +268,19 @@ export default function SettingsPage() {
 
         {/* Danger Zone */}
         <div className="bg-red-500/10 backdrop-blur-sm rounded-xl border border-red-500/30 p-6 mt-6">
-          <h3 className="text-lg font-semibold text-red-400 mb-4">Danger Zone</h3>
+          <h3 className="text-lg font-semibold text-red-400 mb-4 flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5" />
+            Danger Zone
+          </h3>
           <p className="text-slate-300 mb-4">
             Clear all traffic event logs from the database. This action cannot be undone.
           </p>
-          <button className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
-            Clear All Logs
+          <button
+            onClick={handleClearLogs}
+            disabled={clearing}
+            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-red-800 disabled:cursor-not-allowed transition-colors"
+          >
+            {clearing ? 'Clearing...' : 'Clear All Logs'}
           </button>
         </div>
       </div>

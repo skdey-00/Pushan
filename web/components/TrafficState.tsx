@@ -95,7 +95,9 @@ export default function TrafficState({ state }: TrafficStateProps) {
           <span>Traffic Score</span>
         </div>
         <div className="flex items-end gap-2">
-          <div className="text-2xl font-bold">{state.traffic_score.toFixed(1)}</div>
+          <div className="text-2xl font-bold">
+            {typeof state.traffic_score === 'number' ? state.traffic_score.toFixed(1) : '0.0'}
+          </div>
           <div className="text-sm text-gray-500 mb-1">
             {state.traffic_score < 3 ? 'Light' :
              state.traffic_score < 7 ? 'Moderate' :

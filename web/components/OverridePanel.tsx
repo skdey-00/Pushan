@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { AlertTriangle, CheckCircle } from 'lucide-react';
 
 interface OverridePanelProps {
@@ -18,22 +18,12 @@ export default function OverridePanel({ onOverrideSet }: OverridePanelProps) {
     setMessage(null);
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_FLASK_API_URL || 'http://localhost:5000';
-      const response = await fetch(`${apiUrl}/override`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ signal, speed_limit: speedLimit }),
-      });
-
-      if (response.ok) {
-        setMessage({ type: 'success', text: `Override set: ${signal} @ ${speedLimit}km/h` });
-        onOverrideSet({ signal, speedLimit });
-      } else {
-        const error = await response.json();
-        setMessage({ type: 'error', text: error.error || 'Failed to set override' });
-      }
-    } catch (error) {
-      setMessage({ type: 'error', text: 'Network error. Is the API running?' });
+      const { setOverride: apiSetOverride } = await import('@/lib/api');
+      await apiSetOverride(signal, speedLimit);
+      setMessage({ type: 'success', text: `Override set: ${signal} @ ${speedLimit}km/h` });
+      onOverrideSet({ signal, speedLimit });
+    } catch (error: any) {
+      setMessage({ type: 'error', text: error.message || 'Network error. Is the API running?' });
     } finally {
       setLoading(false);
     }
@@ -44,18 +34,11 @@ export default function OverridePanel({ onOverrideSet }: OverridePanelProps) {
     setMessage(null);
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_FLASK_API_URL || 'http://localhost:5000';
-      const response = await fetch(`${apiUrl}/clear_override`, {
-        method: 'POST',
-      });
-
-      if (response.ok) {
-        setMessage({ type: 'success', text: 'Override cleared' });
-      } else {
-        setMessage({ type: 'error', text: 'Failed to clear override' });
-      }
-    } catch (error) {
-      setMessage({ type: 'error', text: 'Network error. Is the API running?' });
+      const { clearOverride: apiClearOverride } = await import('@/lib/api');
+      await apiClearOverride();
+      setMessage({ type: 'success', text: 'Override cleared' });
+    } catch (error: any) {
+      setMessage({ type: 'error', text: error.message || 'Network error. Is the API running?' });
     } finally {
       setLoading(false);
     }

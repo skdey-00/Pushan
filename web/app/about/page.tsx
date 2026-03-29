@@ -6,19 +6,22 @@ export default function AboutPage() {
       category: 'Hardware',
       icon: Camera,
       items: ['ESP32-CAM (AI-Thinker)', 'ESP32 Dev Board', 'FC-51 IR Sensors', 'LED Traffic Lights', 'OLED Display'],
-      color: 'blue',
+      bgColor: 'bg-blue-500/20',
+      iconColor: 'text-blue-400',
     },
     {
       category: 'Software',
       icon: Cpu,
       items: ['YOLOv8 (Object Detection)', 'Flask (Backend API)', 'Next.js 14 (Dashboard)', 'Supabase (Database)', 'Arduino IDE'],
-      color: 'green',
+      bgColor: 'bg-green-500/20',
+      iconColor: 'text-green-400',
     },
     {
       category: 'Infrastructure',
       icon: Database,
       items: ['Cloudflare Tunnel (HTTPS)', 'Vercel (Deployment)', 'Real-time WebSocket', 'Sensor Fusion Engine', 'Decision Algorithm'],
-      color: 'purple',
+      bgColor: 'bg-purple-500/20',
+      iconColor: 'text-purple-400',
     },
   ];
 
@@ -127,8 +130,8 @@ export default function AboutPage() {
                 className="bg-slate-800/50 backdrop-blur-sm rounded-xl border border-slate-700 p-6"
               >
                 <div className="flex items-center gap-3 mb-4">
-                  <div className={`bg-${stack.color}-500/20 p-2 rounded-lg`}>
-                    <stack.icon className={`w-5 h-5 text-${stack.color}-400`} />
+                  <div className={`${stack.bgColor} p-2 rounded-lg`}>
+                    <stack.icon className={`w-5 h-5 ${stack.iconColor}`} />
                   </div>
                   <h3 className="text-white font-semibold">{stack.category}</h3>
                 </div>

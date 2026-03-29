@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import LiveFeed from '@/components/LiveFeed';
 import TrafficState from '@/components/TrafficState';
@@ -12,7 +12,7 @@ import AlertBanner from '@/components/AlertBanner';
 import SystemHealth from '@/components/SystemHealth';
 import MetricsCard from '@/components/MetricsCard';
 import { SystemState, TrafficEvent } from '@/lib/types';
-import { fetchRecentEvents, fetchSystemState } from '@/lib/supabase';
+import { fetchRecentEvents, fetchSystemState } from '@/lib/api';
 import { Activity, Users, Gauge, TrendingUp, Clock } from 'lucide-react';
 
 export default function Home() {
@@ -25,7 +25,12 @@ export default function Home() {
   useEffect(() => {
     const fetchState = async () => {
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_FLASK_API_URL || 'http://localhost:5000';
+        const apiUrl = process.env.NEXT_PUBLIC_FLASK_API_URL;
+        if (!apiUrl) {
+          console.warn('Flask API URL not configured');
+          setLoading(false);
+          return;
+        }
         const response = await fetch(`${apiUrl}/status`);
         if (response.ok) {
           const state = await response.json();
@@ -43,21 +48,21 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch system state from Supabase (for tunnel URL)
+  // Fetch tunnel URL from system state (via Flask API)
   useEffect(() => {
-    const fetchDbState = async () => {
+    const fetchTunnelUrl = async () => {
       try {
         const state = await fetchSystemState();
         if (state.tunnel_url) {
           setTunnelUrl(state.tunnel_url);
         }
       } catch (error) {
-        console.error('Error fetching DB state:', error);
+        console.error('Error fetching tunnel URL:', error);
       }
     };
 
-    fetchDbState();
-    const interval = setInterval(fetchDbState, 10000); // Check every 10s
+    fetchTunnelUrl();
+    const interval = setInterval(fetchTunnelUrl, 30000); // Check every 30s
     return () => clearInterval(interval);
   }, []);
 
@@ -70,18 +75,42 @@ export default function Home() {
 
     fetchEvents();
 
-    // Subscribe to new events via real-time
-    const channel = new WebSocket(
-      `${process.env.NEXT_PUBLIC_FLASK_API_URL || 'ws://localhost:5000'}/ws`
-    );
+    // Subscribe to new events via WebSocket (optional, falls back gracefully)
+    let ws: WebSocket | null = null;
+    try {
+      const wsUrl = process.env.NEXT_PUBLIC_FLASK_API_URL?.replace('http://', 'ws://').replace('https://', 'wss://');
+      if (wsUrl) {
+        ws = new WebSocket(`${wsUrl}/ws`);
 
-    channel.onmessage = (event) => {
-      const newEvent = JSON.parse(event.data);
-      setEvents((prev) => [newEvent, ...prev].slice(0, 50));
-    };
+        ws.onopen = () => {
+          console.log('WebSocket connected');
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const newEvent = JSON.parse(event.data);
+            setEvents((prev) => [newEvent, ...prev].slice(0, 50));
+          } catch (err) {
+            console.error('Error parsing WebSocket message:', err);
+          }
+        };
+
+        ws.onerror = (error) => {
+          console.error('WebSocket error:', error);
+        };
+
+        ws.onclose = () => {
+          console.log('WebSocket disconnected');
+        };
+      }
+    } catch (error) {
+      console.error('WebSocket initialization failed:', error);
+    }
 
     return () => {
-      channel.close();
+      if (ws) {
+        ws.close();
+      }
     };
   }, []);
 
@@ -95,15 +124,15 @@ export default function Home() {
   const avgQueueLevel =
     todayEvents.length > 0
       ? (todayEvents.reduce((sum, e) => sum + e.queue_level, 0) / todayEvents.length).toFixed(1)
-      : 0;
+      : '0.0';
 
   const peakScore = todayEvents.length > 0
     ? Math.max(...todayEvents.map((e) => e.traffic_score))
     : 0;
 
-  const uptime = systemState?.last_update
-    ? `${Math.floor((Date.now() - new Date(systemState.last_update).getTime()) / 1000 / 60)}m`
-    : '--';
+  const lastUpdate = systemState?.last_update
+    ? `${Math.floor((Date.now() - new Date(systemState.last_update).getTime()) / 1000 / 60)}m ago`
+    : 'Never';
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
@@ -138,7 +167,6 @@ export default function Home() {
             icon={Users}
             title="Vehicles Today"
             value={todayEvents.reduce((sum, e) => sum + e.car_count, 0)}
-            trend={{ value: 12, label: 'vs yesterday' }}
             color="blue"
           />
           <MetricsCard
@@ -158,13 +186,12 @@ export default function Home() {
             icon={TrendingUp}
             title="Signals Changed"
             value={todayEvents.length}
-            trend={{ value: 8, label: 'today' }}
             color="green"
           />
           <MetricsCard
             icon={Clock}
-            title="System Uptime"
-            value={uptime}
+            title="Last Update"
+            value={lastUpdate}
             color="gray"
           />
         </div>
@@ -204,9 +231,13 @@ export default function Home() {
             console.log('Override set:', data);
             // Refresh system state after override
             setTimeout(() => {
-              fetch(`${process.env.NEXT_PUBLIC_FLASK_API_URL || 'http://localhost:5000'}/status`)
-                .then((res) => res.json())
-                .then((data) => setSystemState(data));
+              const apiUrl = process.env.NEXT_PUBLIC_FLASK_API_URL;
+              if (apiUrl) {
+                fetch(`${apiUrl}/status`)
+                  .then((res) => res.json())
+                  .then((data) => setSystemState(data))
+                  .catch((err) => console.error('Error refreshing state:', err));
+              }
             }, 500);
           }}
         />

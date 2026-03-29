@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   title: 'Adaptive Traffic Signal Dashboard',
   description: 'Real-time traffic signal management system with edge-AI',
   manifest: '/manifest.json',
-  themeColor: '#0f172a",
+  themeColor: '#0f172a',
   viewport: 'width=device-width, initial-scale=1',
 };
 

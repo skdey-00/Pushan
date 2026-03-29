@@ -12,7 +12,6 @@
     "next": "14.2.21",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "@supabase/supabase-js": "^2.43.4",
     "recharts": "^2.12.7",
     "lucide-react": "^0.379.0"
   },

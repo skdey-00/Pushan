@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { fetchRecentEvents } from '@/lib/supabase';
+import React, { useEffect, useState } from 'react';
+import { fetchRecentEvents } from '@/lib/api';
 import { TrafficEvent } from '@/lib/types';
 import {
   LineChart,
@@ -55,7 +55,7 @@ export default function AnalyticsPage() {
 
     return hours.map((h) => ({
       hour: h.hour,
-      avgScore: h.count ? (h.score / h.count).toFixed(1) : 0,
+      avgScore: h.count ? Number((h.score / h.count).toFixed(1)) : 0,
       avgVehicles: h.count ? Math.round(h.vehicles / h.count) : 0,
     }));
   })();
@@ -84,11 +84,11 @@ export default function AnalyticsPage() {
   const stats = {
     totalEvents: events.length,
     avgScore: events.length
-      ? (events.reduce((sum, e) => sum + e.traffic_score, 0) / events.length).toFixed(1)
+      ? Number((events.reduce((sum, e) => sum + e.traffic_score, 0) / events.length).toFixed(1))
       : 0,
     overrideCount: events.filter((e) => e.is_override).length,
     peakHour: hourlyData.reduce((max, h) =>
-      parseFloat(h.avgScore as string) > parseFloat(max.avgScore as string) ? h : max
+      h.avgScore > max.avgScore ? h : max, hourlyData[0] || { hour: 'N/A', avgScore: 0, avgVehicles: 0 }
     ),
   };
 
