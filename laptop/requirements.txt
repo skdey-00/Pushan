@@ -1,0 +1,11 @@
+ultralytics
+flask
+flask-cors
+supabase
+requests
+Pillow
+python-dotenv
+streamlit
+streamlit-autorefresh
+numpy
+opencv-python
